@@ -12,6 +12,7 @@ async function scanGoogleCompetitor({ query, region = 'US', maxAds = 25, adForma
   };
   if (API_KEY) {
     headers['Authorization'] = `Bearer ${API_KEY}`;
+    headers['x-license-key'] = API_KEY;
   }
 
   const res = await fetch(`${API_BASE}/api/scan/google`, {
@@ -38,6 +39,7 @@ async function scanTikTokWinners({ country = 'US', period = '30', sortBy = 'ctr'
   };
   if (API_KEY) {
     headers['Authorization'] = `Bearer ${API_KEY}`;
+    headers['x-license-key'] = API_KEY;
   }
 
   const res = await fetch(`${API_BASE}/api/scan/tiktok`, {
@@ -209,7 +211,7 @@ Examples:
   console.error(`Scanning Google & YouTube Ads + Funnel Architecture for "${query}" (${region})...`);
   try {
     const payload = await scanGoogleCompetitor({ query, region, maxAds: 25 });
-    const r = payload.data || payload;
+    const r = payload.result || payload.data || payload;
 
     if (asJson) {
       console.log(JSON.stringify(payload, null, 2));
@@ -217,11 +219,14 @@ Examples:
     }
 
     const domainSlug = r.resolvedDomain || query;
+    const planName = payload.tier || payload.plan || 'free';
+    const lockedCount = payload.lockedAdsCount ?? payload.lockedCount ?? 0;
+
     console.log(`\n=============================================================`);
     console.log(` AdPulse Audit: ${r.resolvedAdvertiserName || domainSlug} (${region})`);
     console.log(` Live Web Report: https://adpulsespy.com/spy/${domainSlug}`);
     console.log(`=============================================================`);
-    console.log(`• Sampled Active Creatives : ${r.totalExtracted} (Plan: ${payload.plan || 'free_preview'})`);
+    console.log(`• Sampled Active Creatives : ${r.totalExtracted} (Plan: ${planName})`);
     console.log(`• Evergreen Winners (30d+) : ${r.evergreenWinnersCount} (Longest: ${r.longestRunningDays} days)`);
     console.log(`• Unlisted YouTube Videos  : ${r.youtubeVideosCount}`);
 
@@ -241,9 +246,9 @@ Examples:
       }
     }
 
-    if (payload.lockedCount > 0) {
+    if (lockedCount > 0) {
       console.log(
-        `\n🔒 +${payload.lockedCount} additional creatives locked in free preview. Unlock full exports & API at https://adpulsespy.com/#pricing\n`,
+        `\n🔒 +${lockedCount} additional creatives locked in free preview. Unlock full exports & API at https://adpulsespy.com/#pricing\n`,
       );
     } else {
       console.log('');
