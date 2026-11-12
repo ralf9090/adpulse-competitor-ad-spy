@@ -1,23 +1,27 @@
 #!/usr/bin/env node
 
 import readline from 'node:readline';
+import { parseArgs } from 'node:util';
 
 const API_BASE = process.env.ADPULSE_API_URL || 'https://adpulsespy.com';
 const API_KEY = process.env.ADPULSE_API_KEY || '';
 
-async function scanGoogleCompetitor({ query, region = 'US', maxAds = 25, adFormat = 'ALL' }) {
+function buildHeaders() {
   const headers = {
     'Content-Type': 'application/json',
-    'User-Agent': 'adpulse-cli-mcp/1.0.0 (+https://adpulsespy.com)',
+    'User-Agent': 'adpulse-cli-mcp/1.1.0 (+https://adpulsespy.com)',
   };
   if (API_KEY) {
     headers['Authorization'] = `Bearer ${API_KEY}`;
     headers['x-license-key'] = API_KEY;
   }
+  return headers;
+}
 
+async function scanGoogleCompetitor({ query, region = 'US', maxAds = 25, adFormat = 'ALL' }) {
   const res = await fetch(`${API_BASE}/api/scan/google`, {
     method: 'POST',
-    headers,
+    headers: buildHeaders(),
     body: JSON.stringify({ query, region, maxAds, adFormat }),
   });
 
@@ -33,18 +37,9 @@ async function scanGoogleCompetitor({ query, region = 'US', maxAds = 25, adForma
 }
 
 async function scanTikTokWinners({ country = 'US', period = '30', sortBy = 'ctr', maxAds = 12 }) {
-  const headers = {
-    'Content-Type': 'application/json',
-    'User-Agent': 'adpulse-cli-mcp/1.0.0 (+https://adpulsespy.com)',
-  };
-  if (API_KEY) {
-    headers['Authorization'] = `Bearer ${API_KEY}`;
-    headers['x-license-key'] = API_KEY;
-  }
-
   const res = await fetch(`${API_BASE}/api/scan/tiktok`, {
     method: 'POST',
-    headers,
+    headers: buildHeaders(),
     body: JSON.stringify({ country, period, sortBy, maxAds }),
   });
 
@@ -53,7 +48,7 @@ async function scanTikTokWinners({ country = 'US', period = '30', sortBy = 'ctr'
     throw new Error(
       data.message ||
         data.error ||
-        `TikTok Creative Radar requires an AdPulse Growth Pro or Agency Scale key (${API_BASE}/#pricing).`,
+        `TikTok Creative Radar returned HTTP ${res.status}. Upgrade at ${API_BASE}/#pricing`,
     );
   }
   return data;
@@ -85,12 +80,16 @@ function startMcpServer() {
       return reply(id, {
         protocolVersion: '2024-11-05',
         capabilities: { tools: {} },
-        serverInfo: { name: 'adpulse-competitor-ad-spy', version: '1.0.0' },
+        serverInfo: { name: 'adpulse-competitor-ad-spy', version: '1.1.0' },
       });
     }
 
     if (method === 'notifications/initialized') {
       return;
+    }
+
+    if (method === 'ping') {
+      return reply(id, {});
     }
 
     if (method === 'tools/list') {
@@ -113,7 +112,7 @@ function startMcpServer() {
                 },
                 maxAds: {
                   type: 'number',
-                  description: 'Max creatives to inspect (10-100). Default: 25',
+                  description: 'Max creatives to inspect (10-120). Default: 25',
                 },
               },
               required: ['query'],
@@ -122,13 +121,14 @@ function startMcpServer() {
           {
             name: 'spy_tiktok_top_ads',
             description:
-              'Fetch top-converting TikTok Creative Center video ads ranked by CTR or engagement, including landing page URLs and pixel/stack teardown (requires ADPULSE_API_KEY).',
+              'Fetch top-converting TikTok Creative Center video ads ranked by CTR or engagement, including landing page URLs and pixel/stack teardown (includes 3 free daily preview scans; full vault unlocked with ADPULSE_API_KEY).',
             inputSchema: {
               type: 'object',
               properties: {
                 country: { type: 'string', description: 'ISO country code (US, GB, DE, CA, AU). Default: US' },
                 period: { type: 'string', description: 'Lookback window in days: "7", "30", or "180". Default: "30"' },
                 sortBy: { type: 'string', description: '"ctr" or "like". Default: "ctr"' },
+                maxAds: { type: 'number', description: 'Max creatives to fetch (6-40). Default: 12' },
               },
             },
           },
@@ -142,14 +142,21 @@ function startMcpServer() {
         const args = params?.arguments || {};
         if (toolName === 'spy_google_competitor_ads') {
           const out = await scanGoogleCompetitor(args);
-          const cleanSlug = String(args.query || '').replace(/^https?:\/\//, '').split('/')[0];
+          const resolvedSlug =
+            out?.result?.resolvedDomain ||
+            encodeURIComponent(
+              String(args.query || '')
+                .trim()
+                .replace(/^https?:\/\//, '')
+                .split('/')[0],
+            );
           return reply(id, {
             content: [
               {
                 type: 'text',
                 text: JSON.stringify(
                   {
-                    shareableReportUrl: `https://adpulsespy.com/spy/${cleanSlug}`,
+                    shareableReportUrl: `https://adpulsespy.com/spy/${resolvedSlug}`,
                     ...out,
                   },
                   null,
@@ -180,37 +187,62 @@ function startMcpServer() {
   });
 }
 
-async function runCli(argv) {
-  if (argv.includes('--mcp')) {
-    return startMcpServer();
-  }
-
-  const args = argv.filter((a) => !a.startsWith('-'));
-  const flagRegionIdx = argv.indexOf('--region');
-  const region = flagRegionIdx !== -1 && argv[flagRegionIdx + 1] ? argv[flagRegionIdx + 1] : 'US';
-  const asJson = argv.includes('--json');
-
-  if (args.length === 0 || argv.includes('--help') || argv.includes('-h')) {
-    console.log(`
-AdPulse Competitor Ad & Funnel Spy CLI + MCP Server
+function printHelp() {
+  console.log(`
+AdPulse Competitor Ad & Funnel Spy CLI + MCP Server (v1.1.0)
 Web Dashboard & API Keys: https://adpulsespy.com
 
 Usage:
-  npx adpulse-competitor-ad-spy <domain-or-brand> [--region US] [--json]
-  npx adpulse-competitor-ad-spy --mcp
+  node ./bin/adpulse.mjs <domain-or-brand> [--region US] [--max-ads 25] [--json]
+  npx github:ralf9090/adpulse-competitor-ad-spy <domain-or-brand> [--region US]
+  node ./bin/adpulse.mjs --mcp
 
 Examples:
-  npx adpulse-competitor-ad-spy klaviyo.com
-  npx adpulse-competitor-ad-spy shopify.com --region GB
-  ADPULSE_API_KEY=adp_live_xxx npx adpulse-competitor-ad-spy hubspot.com --json
+  node ./bin/adpulse.mjs klaviyo.com
+  node ./bin/adpulse.mjs --region GB gymshark.com
+  ADPULSE_API_KEY=adp_live_xxx node ./bin/adpulse.mjs hubspot.com --json
 `);
+}
+
+async function runCli(argv) {
+  const invokedBin = process.argv[1] || '';
+  if (invokedBin.endsWith('adpulse-mcp') || argv.includes('--mcp')) {
+    return startMcpServer();
+  }
+
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args: argv,
+      allowPositionals: true,
+      options: {
+        region: { type: 'string', short: 'r', default: 'US' },
+        'max-ads': { type: 'string', short: 'm', default: '25' },
+        json: { type: 'boolean', short: 'j', default: false },
+        help: { type: 'boolean', short: 'h', default: false },
+        mcp: { type: 'boolean', default: false },
+      },
+    });
+  } catch (err) {
+    console.error(`Argument error: ${err.message}`);
+    printHelp();
+    process.exit(1);
+  }
+
+  const { values, positionals } = parsed;
+  if (values.help || positionals.length === 0) {
+    printHelp();
     process.exit(0);
   }
 
-  const query = args[0];
+  const query = positionals[0];
+  const region = String(values.region || 'US').toUpperCase();
+  const maxAds = Math.max(10, Math.min(120, Number(values['max-ads']) || 25));
+  const asJson = Boolean(values.json);
+
   console.error(`Scanning Google & YouTube Ads + Funnel Architecture for "${query}" (${region})...`);
   try {
-    const payload = await scanGoogleCompetitor({ query, region, maxAds: 25 });
+    const payload = await scanGoogleCompetitor({ query, region, maxAds });
     const r = payload.result || payload.data || payload;
 
     if (asJson) {
