@@ -9,7 +9,7 @@ const API_KEY = process.env.ADPULSE_API_KEY || '';
 function buildHeaders() {
   const headers = {
     'Content-Type': 'application/json',
-    'User-Agent': 'adpulse-cli-mcp/1.1.0 (+https://adpulsespy.com)',
+    'User-Agent': 'adpulse-cli-mcp/1.2.0 (+https://adpulsespy.com)',
   };
   if (API_KEY) {
     headers['Authorization'] = `Bearer ${API_KEY}`;
@@ -30,7 +30,7 @@ async function scanGoogleCompetitor({ query, region = 'US', maxAds = 25, adForma
     throw new Error(
       data.message ||
         data.error ||
-        `AdPulse API returned HTTP ${res.status}. Unlock unlimited API access at https://adpulsespy.com/#pricing`,
+        `AdPulse API returned HTTP ${res.status}. Agency Scale ($129/mo) unlocks REST API & MCP access at https://adpulsespy.com/#pricing`,
     );
   }
   return data;
@@ -48,7 +48,7 @@ async function scanTikTokWinners({ country = 'US', period = '30', sortBy = 'ctr'
     throw new Error(
       data.message ||
         data.error ||
-        `TikTok Creative Radar returned HTTP ${res.status}. Upgrade at ${API_BASE}/#pricing`,
+        `TikTok Trending Creative Radar returned HTTP ${res.status}. Upgrade at ${API_BASE}/#pricing`,
     );
   }
   return data;
@@ -80,7 +80,7 @@ function startMcpServer() {
       return reply(id, {
         protocolVersion: '2024-11-05',
         capabilities: { tools: {} },
-        serverInfo: { name: 'adpulse-competitor-ad-spy', version: '1.1.0' },
+        serverInfo: { name: 'adpulse-competitor-ad-spy', version: '1.2.0' },
       });
     }
 
@@ -98,21 +98,21 @@ function startMcpServer() {
           {
             name: 'spy_google_competitor_ads',
             description:
-              'Scan any competitor domain or brand on Google Ads Transparency + YouTube to uncover evergreen 30d+ winning ads, unlisted YouTube video URLs, tracking pixels, and landing page conversion funnel readiness.',
+              'Scan any competitor domain or brand on Google Ads Transparency + YouTube across 33 countries to surface 30d+ long-running ads, decoded YouTube ad video URLs, and static HTML landing page tag signals.',
             inputSchema: {
               type: 'object',
               properties: {
                 query: {
                   type: 'string',
-                  description: 'Competitor domain (e.g. "klaviyo.com", "shopify.com") or advertiser name.',
+                  description: 'Competitor domain (e.g. "klaviyo.com", "gymshark.com") or advertiser name.',
                 },
                 region: {
                   type: 'string',
-                  description: '2-letter ISO country code (US, GB, DE, CA, AU, FR, etc.). Default: US',
+                  description: '2-letter ISO country code across 33 markets (US, GB, DE, CA, AU, FR, etc.). Default: US',
                 },
                 maxAds: {
                   type: 'number',
-                  description: 'Max creatives to inspect (10-120). Default: 25',
+                  description: 'Max creatives to inspect (10-120 on Agency API; 3 preview ads on free tier). Default: 25',
                 },
               },
               required: ['query'],
@@ -121,14 +121,14 @@ function startMcpServer() {
           {
             name: 'spy_tiktok_top_ads',
             description:
-              'Fetch top-converting TikTok Creative Center video ads ranked by CTR or engagement, including landing page URLs and pixel/stack teardown (includes 3 free daily preview scans; full vault unlocked with ADPULSE_API_KEY).',
+              'Fetch trending TikTok Creative Center video ads ranked by CTR or hook retention across 33 markets, including landing page URLs and HTML tag inspection (3 free daily previews; full API access with Agency Scale key).',
             inputSchema: {
               type: 'object',
               properties: {
                 country: { type: 'string', description: 'ISO country code (US, GB, DE, CA, AU). Default: US' },
                 period: { type: 'string', description: 'Lookback window in days: "7", "30", or "180". Default: "30"' },
-                sortBy: { type: 'string', description: '"ctr" or "like". Default: "ctr"' },
-                maxAds: { type: 'number', description: 'Max creatives to fetch (6-40). Default: 12' },
+                sortBy: { type: 'string', description: '"ctr", "play_2s_rate", "play_6s_rate", or "reach". Default: "ctr"' },
+                maxAds: { type: 'number', description: 'Max creatives to fetch (6-25). Default: 12' },
               },
             },
           },
@@ -156,7 +156,7 @@ function startMcpServer() {
                 type: 'text',
                 text: JSON.stringify(
                   {
-                    shareableReportUrl: `https://adpulsespy.com/spy/${resolvedSlug}`,
+                    webWorkspaceUrl: `https://adpulsespy.com/?domain=${resolvedSlug}`,
                     ...out,
                   },
                   null,
@@ -189,8 +189,8 @@ function startMcpServer() {
 
 function printHelp() {
   console.log(`
-AdPulse Competitor Ad & Funnel Spy CLI + MCP Server (v1.1.0)
-Web Dashboard & API Keys: https://adpulsespy.com
+AdPulse Competitor Ad & Landing Signal CLI + MCP Server (v1.2.0)
+Web Dashboard & Agency API Keys: https://adpulsespy.com
 
 Usage:
   node ./bin/adpulse.mjs <domain-or-brand> [--region US] [--max-ads 25] [--json]
@@ -198,9 +198,9 @@ Usage:
   node ./bin/adpulse.mjs --mcp
 
 Examples:
-  node ./bin/adpulse.mjs klaviyo.com
+  node ./bin/adpulse.mjs athleticgreens.com
   node ./bin/adpulse.mjs --region GB gymshark.com
-  ADPULSE_API_KEY=adp_live_xxx node ./bin/adpulse.mjs hubspot.com --json
+  ADPULSE_API_KEY=adp_live_xxx node ./bin/adpulse.mjs klaviyo.com --json
 `);
 }
 
@@ -240,7 +240,7 @@ async function runCli(argv) {
   const maxAds = Math.max(10, Math.min(120, Number(values['max-ads']) || 25));
   const asJson = Boolean(values.json);
 
-  console.error(`Scanning Google & YouTube Ads + Funnel Architecture for "${query}" (${region})...`);
+  console.error(`Scanning Google & YouTube Ads + Landing Signals for "${query}" (${region})...`);
   try {
     const payload = await scanGoogleCompetitor({ query, region, maxAds });
     const r = payload.result || payload.data || payload;
@@ -255,24 +255,26 @@ async function runCli(argv) {
     const lockedCount = payload.lockedAdsCount ?? payload.lockedCount ?? 0;
 
     console.log(`\n=============================================================`);
-    console.log(` AdPulse Audit: ${r.resolvedAdvertiserName || domainSlug} (${region})`);
-    console.log(` Live Web Report: https://adpulsespy.com/spy/${domainSlug}`);
+    console.log(` AdPulse Snapshot: ${r.resolvedAdvertiserName || domainSlug} (${region})`);
+    console.log(` Interactive Workspace: https://adpulsespy.com/?domain=${domainSlug}`);
     console.log(`=============================================================`);
-    console.log(`• Sampled Active Creatives : ${r.totalExtracted} (Plan: ${planName})`);
-    console.log(`• Evergreen Winners (30d+) : ${r.evergreenWinnersCount} (Longest: ${r.longestRunningDays} days)`);
-    console.log(`• Unlisted YouTube Videos  : ${r.youtubeVideosCount}`);
+    console.log(`• Sampled Active Creatives : ${r.totalExtracted} (Tier: ${planName})`);
+    console.log(`• 30d+ Long-Running Ads    : ${r.evergreenWinnersCount} (Longest span: ${r.longestRunningDays} days)`);
+    console.log(`• Decoded YouTube Videos   : ${r.youtubeVideosCount}`);
 
     if (r.landingPageIntel) {
       const lp = r.landingPageIntel;
-      console.log(`• Funnel Readiness Score   : ${lp.funnelReadinessScore}/100 (${lp.analyzedUrl})`);
-      console.log(`• Ad Pixels Detected       : ${lp.adPixelsDetected.join(', ') || 'None / Server-Side'}`);
-      console.log(`• Tech Stack               : ${lp.techStackDetected.join(', ') || 'Custom'}`);
+      const scoreTxt =
+        lp.funnelReadinessScore != null ? `${lp.funnelReadinessScore}/100` : `Unmeasured (${lp.measurementStatus})`;
+      console.log(`• Landing Signal Score     : ${scoreTxt} (${lp.analyzedUrl})`);
+      console.log(`• Observed HTML Tags       : ${lp.adPixelsDetected.join(', ') || 'None in static HTML'}`);
+      console.log(`• Observed Tech Stack      : ${lp.techStackDetected.join(', ') || 'Custom / Unmeasured'}`);
     }
 
     if (Array.isArray(r.ads) && r.ads.length > 0) {
-      console.log(`\nTop Active Creatives:`);
+      console.log(`\nSampled Creatives:`);
       for (const ad of r.ads.slice(0, 6)) {
-        const badge = ad.isEvergreenWinner ? '[WINNER]' : '        ';
+        const badge = ad.isEvergreenWinner ? '[30d+]' : '      ';
         const media = ad.youtubeVideoUrl || ad.landingPageUrl || ad.transparencyUrl;
         console.log(`  ${badge} ${String(ad.daysRunning).padStart(3, ' ')}d | ${ad.format.padEnd(5, ' ')} | ${media}`);
       }
@@ -280,7 +282,7 @@ async function runCli(argv) {
 
     if (lockedCount > 0) {
       console.log(
-        `\n🔒 +${lockedCount} additional creatives locked in free preview. Unlock full exports & API at https://adpulsespy.com/#pricing\n`,
+        `\n🔒 +${lockedCount} additional creatives locked in free preview. Unlock Agency Scale API/MCP at https://adpulsespy.com/#pricing\n`,
       );
     } else {
       console.log('');

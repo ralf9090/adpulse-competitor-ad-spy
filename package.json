@@ -1,7 +1,7 @@
 {
   "name": "adpulse-competitor-ad-spy",
-  "version": "1.0.0",
-  "description": "CLI & MCP Server for AdPulse — Spy on competitor Google Search, Display & unlisted YouTube ads, TikTok Creative Center winners, and landing page conversion funnels.",
+  "version": "1.2.0",
+  "description": "CLI & MCP Server for AdPulse — Spy on 30d+ long-running Google Search, Display & decoded YouTube ad videos, TikTok Creative Radar, and landing page conversion funnels.",
   "type": "module",
   "bin": {
     "adpulse": "./bin/adpulse.mjs",
