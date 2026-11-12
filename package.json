@@ -1,0 +1,35 @@
+{
+  "name": "adpulse-competitor-ad-spy",
+  "version": "1.0.0",
+  "description": "CLI & MCP Server for AdPulse — Spy on competitor Google Search, Display & unlisted YouTube ads, TikTok Creative Center winners, and landing page conversion funnels.",
+  "type": "module",
+  "bin": {
+    "adpulse": "./bin/adpulse.mjs",
+    "adpulse-mcp": "./bin/adpulse.mjs"
+  },
+  "scripts": {
+    "start": "node ./bin/adpulse.mjs",
+    "mcp": "node ./bin/adpulse.mjs --mcp"
+  },
+  "keywords": [
+    "ad-spy",
+    "competitor-analysis",
+    "google-ads-transparency",
+    "youtube-ads",
+    "tiktok-creative-center",
+    "landing-page-teardown",
+    "mcp",
+    "mcp-server",
+    "growth-marketing"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "AdPulse Intelligence (https://adpulsespy.com)",
+  "license": "MIT",
+  "homepage": "https://adpulsespy.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ralf9090/adpulse-competitor-ad-spy.git"
+  }
+}
